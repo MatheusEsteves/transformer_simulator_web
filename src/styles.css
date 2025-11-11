@@ -1,0 +1,5 @@
+body { margin: 0; padding: 0; background: #f3f4f6; font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto; }
+h1 { color: #0f172a; }
+.train-form { margin-bottom: 20px; }
+button { background: #4f46e5; color: white; padding: 8px 12px; border: none; border-radius: 8px; cursor: pointer; }
+button:hover { opacity: 0.9; }
