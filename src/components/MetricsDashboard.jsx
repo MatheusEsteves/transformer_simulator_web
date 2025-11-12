@@ -10,24 +10,27 @@ export default function MetricsDashboard({ wsUrl = "ws://localhost:8000/ws/metri
   const [attentionMatrixHeads, setAttentionMatrixHeads] = useState([]); // 3D array [head][seq][seq]
   const [currentHead, setCurrentHead] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [useLogScale, setUseLogScale] = useState(false);
   const wsRef = useRef(null);
 
+  // Função segura para normalizar attention_weights em 3D: [head][row][col]
   function normalizeAttention(att) {
-    if (!att || !Array.isArray(att)) return []; // garante array
+    if (!att || !Array.isArray(att)) return [];
 
     let matrix = att;
 
-    // Se for 2D -> adicionar dimensão de head
+    // Se 2D -> adicionar head
     if (Array.isArray(matrix[0]) && !Array.isArray(matrix[0][0])) {
-      matrix = [matrix]; // shape -> [1, seq, seq]
+      matrix = [matrix];
     }
 
-    // Agora garantimos 3D: [head][row][col]
+    // Garantir 3D
     const normalized = matrix.map(head =>
-      head.map(row => {
-        if (!Array.isArray(row)) return [Number(row) || 0]; // converte número em array
-        return row.map(v => (typeof v === "number" ? v : 0));
-      })
+      head.map(row =>
+        Array.isArray(row)
+          ? row.map(v => (typeof v === "number" ? v : 0))
+          : [Number(row) || 0]
+      )
     );
 
     return normalized;
@@ -47,9 +50,9 @@ export default function MetricsDashboard({ wsUrl = "ws://localhost:8000/ws/metri
         const loss = msg.loss ?? msg.LOSS ?? null;
         const att = msg.attention_weights ?? msg.ATTENTION_WEIGHTS ?? msg.attentionWeights ?? null;
 
-        // Update loss
+        // Atualiza loss
         if (step !== null && loss !== null) {
-          setLoading(false); // força atualização de loading
+          setLoading(false);
           setCurrentStep(step);
           setCurrentLoss(loss);
 
@@ -57,6 +60,7 @@ export default function MetricsDashboard({ wsUrl = "ws://localhost:8000/ws/metri
           setLossData([...lossRef.current]);
         }
 
+        // Atualiza attention
         if (att) {
           try {
             const matrixHeads = normalizeAttention(att);
@@ -66,20 +70,21 @@ export default function MetricsDashboard({ wsUrl = "ws://localhost:8000/ws/metri
             console.error("Error normalizing attention matrix:", e);
           }
         }
+
       } catch (err) {
-        console.error("Error parsing WS message", err);
+        console.error("Error parsing WS message:", err);
       }
     };
 
     ws.onclose = () => console.log("WS closed");
-    ws.onerror = (e) => console.error("WS error", e);
+    ws.onerror = (e) => console.error("WS error:", e);
 
     return () => {
       try { ws.close(); } catch (e) {}
     };
   }, [wsUrl]);
 
-  // Prepare loss plot
+  // Gráfico de loss
   const lossTrace = {
     x: lossData.map(p => p.x),
     y: lossData.map(p => p.y),
@@ -94,9 +99,19 @@ export default function MetricsDashboard({ wsUrl = "ws://localhost:8000/ws/metri
     margin: { t: 40, l: 40, r: 20, b: 40 }
   };
 
-  // Prepare attention heatmap
+  // Gráfico de attention
   const hasHeads = attentionMatrixHeads.length > 0;
   const attentionMatrix = hasHeads ? attentionMatrixHeads[currentHead] : [];
+
+  // Aplicar log-scale se selecionado, protegendo valores muito pequenos
+  const heatmapZ = attentionMatrix.length > 0
+    ? (useLogScale
+        ? attentionMatrix.map(row => row.map(v => Math.log10(Math.max(v, 1e-10))))
+        : attentionMatrix)
+    : [];
+
+  const heatmapZmin = useLogScale ? Math.log10(1e-10) : 0;
+  const heatmapZmax = useLogScale ? 0 : 1;
 
   const heatmapLayout = {
     title: hasHeads ? `Attention Head ${currentHead + 1}` : "Attention weights",
@@ -124,7 +139,7 @@ export default function MetricsDashboard({ wsUrl = "ws://localhost:8000/ws/metri
           <div className="loading">Aguardando início do treinamento... (loading)</div>
         ) : hasHeads ? (
           <div>
-            {/* Slider para selecionar head */}
+            {/* Slider para heads */}
             {attentionMatrixHeads.length > 1 && (
               <div style={{ marginBottom: '10px' }}>
                 <label>Head: {currentHead + 1}</label>
@@ -137,16 +152,29 @@ export default function MetricsDashboard({ wsUrl = "ws://localhost:8000/ws/metri
                 />
               </div>
             )}
+
+            {/* Toggle log-scale */}
+            <div style={{ marginBottom: '10px' }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={useLogScale}
+                  onChange={() => setUseLogScale(!useLogScale)}
+                />{" "}
+                Usar log-scale para valores muito pequenos
+              </label>
+            </div>
+
             <Plot
-              key={currentStep + '-' + currentHead} // força rerender ao mudar step ou head
+              key={currentStep + '-' + currentHead + '-' + useLogScale} // força rerender
               data={[{
-                z: attentionMatrix,
+                z: heatmapZ,
                 type: 'heatmap',
                 colorscale: 'Viridis',
-                zmin: 0,
-                zmax: 1,
+                zmin: heatmapZmin,
+                zmax: heatmapZmax,
                 hoverongaps: false,
-                hovertemplate: 'Query: %{x}<br>Key: %{y}<br>Attention: %{z:.3f}<extra></extra>'
+                hovertemplate: 'Query: %{x}<br>Key: %{y}<br>Attention: %{z:.10f}<extra></extra>'
               }]}
               layout={heatmapLayout}
               config={{ displayModeBar: false, responsive: true }}
