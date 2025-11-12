@@ -1,0 +1,7 @@
+
+.sidebar { width:320px; background:#fafafa; border-right:1px solid #eee; padding:12px; transition: width .2s; }
+.sidebar.closed { width:40px; overflow:hidden; }
+.sidebar-header{ display:flex; align-items:center; gap:8px; margin-bottom:8px }
+.sidebar-form label{ display:block; margin-bottom:8px; font-size:13px }
+.sidebar-form input{ width:100%; padding:6px; margin-top:4px; box-sizing:border-box }
+.error{ color:#b00020; font-size:12px }

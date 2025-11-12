@@ -1,13 +1,17 @@
+
 import React from 'react';
-import TrainForm from '../components/TrainForm';
+import SidebarForm from '../components/SidebarForm';
 import MetricsDashboard from '../components/MetricsDashboard';
+import './App.css';
 
 export default function App(){
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 20 }}>
-      <h1>Transformer Training Dashboard</h1>
-      <TrainForm />
-      <MetricsDashboard />
+    <div className="app-shell">
+      <SidebarForm />
+      <div className="main-area">
+        <h1>Transformer Training Dashboard</h1>
+        <MetricsDashboard />
+      </div>
     </div>
   );
 }

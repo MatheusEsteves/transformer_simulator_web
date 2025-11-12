@@ -1,0 +1,3 @@
+
+.app-shell{ display:flex; min-height:100vh; font-family:Arial, sans-serif }
+.main-area{ flex:1; padding:20px }
